@@ -1,11 +1,3 @@
----
-title: "Dự đoán nguy cơ mắc bệnh tim dựa trên dữ liệu y tế bằng các mô hình Machine Learning."
-date: "2026-06-11"
-output: html_document
----
-
-
-```{r Xây dựng mô hình}
 
 # Thư viện
 library(dplyr)
@@ -196,6 +188,3 @@ interpret_logistic(model_lr)
 interpret_ranger(training_set)
 interpret_knn_permutation(model_knn, testing_set)
 
-
-
-```
