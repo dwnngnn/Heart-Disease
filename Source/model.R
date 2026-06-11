@@ -9,9 +9,7 @@ heart_data <- read.csv(file.path("heart_disease_dataset_cleaned.csv"), stringsAs
 if ("target" %in% names(heart_data)) {
   names(heart_data)[names(heart_data) == "target"] <- "heart_disease"
 }
-if (!"heart_disease" %in% names(heart_data)) {
-  stop("Không tìm thấy cột 'target' hoặc 'heart_disease' trong dữ liệu.")
-}
+
 heart_data$heart_disease <- factor(heart_data$heart_disease, levels = c(0, 1))
 
 set.seed(31)
