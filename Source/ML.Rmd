@@ -18,7 +18,9 @@ heart_data <- read.csv(file.path("heart_disease_dataset_cleaned.csv"), stringsAs
 if ("target" %in% names(heart_data)) {
   names(heart_data)[names(heart_data) == "target"] <- "heart_disease"
 }
-
+if (!"heart_disease" %in% names(heart_data)) {
+  stop("Không tìm thấy cột 'target' hoặc 'heart_disease' trong dữ liệu.")
+}
 heart_data$heart_disease <- factor(heart_data$heart_disease, levels = c(0, 1))
 
 set.seed(31)
@@ -112,6 +114,87 @@ cat("\n")
 # 5.5. So sánh các mô hình
 cat("5.5 So sánh các mô hình\n")
 print(results)
+
+# 5.6. In số liệu hệ số / tầm quan trọng cho từng mô hình (chỉ in bảng/ma trận)
+
+# Hàm in cho Logistic Regression (chỉ in bảng hệ số và OR với CI)
+interpret_logistic <- function(model) {
+  s <- summary(model)
+  coefs <- s$coefficients
+  est <- coef(model)
+  se <- sqrt(diag(vcov(model)))
+  z <- qnorm(0.975)
+  or <- exp(est)
+  or_low <- exp(est - z * se)
+  or_high <- exp(est + z * se)
+  df <- data.frame(
+    Variable = names(est),
+    Coefficient = round(est, 4),
+    OR = round(or, 4),
+    OR_95CI = paste0(round(or_low,4), " - ", round(or_high,4)),
+    P_value = ifelse(rownames(coefs) %in% rownames(coefs), round(coefs[,4], 4), NA)
+  )
+  print(df)
+}
+
+# Hàm in tầm quan trọng biến cho Random Forest (refit để lấy importance)
+interpret_ranger <- function(training_data, num.trees = 350, max.depth = 5, seed = 42) {
+  rf_imp <- ranger(
+    formula = heart_disease ~ .,
+    data = training_data,
+    num.trees = num.trees,
+    max.depth = max.depth,
+    probability = TRUE,
+    importance = "permutation",
+    seed = seed
+  )
+  imp <- rf_imp$variable.importance
+  imp_df <- data.frame(Variable = names(imp), Importance = as.numeric(imp))
+  imp_df <- imp_df[order(-imp_df$Importance), ]
+  print(head(imp_df, 20))
+}
+
+# Hàm permutation importance cho KNN (in bảng giá trị importance)
+interpret_knn_permutation <- function(model, testing_data, response_name = "heart_disease") {
+  requireNamespace("pROC", quietly = TRUE)
+  predictors <- setdiff(names(testing_data), response_name)
+  # baseline
+  prob_mat <- try(predict(model, newdata = testing_data, type = "prob"), silent = TRUE)
+  if (!inherits(prob_mat, "try-error") && !is.null(prob_mat)) {
+    baseline_prob <- as.numeric(prob_mat[, "1"])
+    roc_obj <- try(pROC::roc(response = testing_data[[response_name]], predictor = baseline_prob, levels = c("0","1"), direction = "<"), silent = TRUE)
+    baseline_auc <- if (!inherits(roc_obj, "try-error")) as.numeric(pROC::auc(roc_obj)) else NA
+  } else {
+    pred_class <- try(predict(model, newdata = testing_data, type = "class"), silent = TRUE)
+    baseline_acc <- if (!inherits(pred_class, "try-error")) mean(pred_class == testing_data[[response_name]]) else NA
+    baseline_auc <- NA
+  }
+  imp_values <- numeric(length(predictors))
+  names(imp_values) <- predictors
+  for (v in predictors) {
+    perm_data <- testing_data
+    perm_data[[v]] <- sample(perm_data[[v]])
+    prob_mat_p <- try(predict(model, newdata = perm_data, type = "prob"), silent = TRUE)
+    if (!inherits(prob_mat_p, "try-error") && !is.null(prob_mat_p) && !is.na(baseline_auc)) {
+      perm_prob <- as.numeric(prob_mat_p[, "1"])
+      roc_p <- try(pROC::roc(response = perm_data[[response_name]], predictor = perm_prob, levels = c("0","1"), direction = "<"), silent = TRUE)
+      perm_auc <- if (!inherits(roc_p, "try-error")) as.numeric(pROC::auc(roc_p)) else NA
+      imp_values[v] <- ifelse(is.na(baseline_auc) || is.na(perm_auc), NA, baseline_auc - perm_auc)
+    } else {
+      pred_class_p <- try(predict(model, newdata = perm_data, type = "class"), silent = TRUE)
+      acc_p <- if (!inherits(pred_class_p, "try-error")) mean(pred_class_p == perm_data[[response_name]]) else NA
+      imp_values[v] <- ifelse(is.na(baseline_acc) || is.na(acc_p), NA, baseline_acc - acc_p)
+    }
+  }
+  imp_df <- data.frame(Variable = names(imp_values), Importance = imp_values)
+  imp_df <- imp_df[order(-imp_df$Importance), ]
+  print(head(imp_df, 20))
+}
+
+# Gọi các hàm diễn giải (chỉ in số liệu)
+interpret_logistic(model_lr)
+interpret_ranger(training_set)
+interpret_knn_permutation(model_knn, testing_set)
 
 
 
