@@ -1,0 +1,166 @@
+---
+title: "Tiền Xử Lý R_project"
+output: html_document
+date: "2026-06-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+Khái niệm → Cách kiểm tra → Kết quả → Cách xử lý → Kết luận
+
+3.4.1. Xử lý dữ liệu NA
+```{r}
+heart <- read.csv("heart_disease_dataset_final.csv")
+sum(is.na(heart))
+colSums(is.na(heart))
+sum(duplicated(heart))
+names(heart)
+str(heart)
+```
+```{r}
+# Hàm tìm Mode
+getmode <- function(v) {
+  uniqv <- na.omit(unique(v))
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+# Các biến số: thay NA bằng Median
+num_cols <- c("trestbps", "chol", "thalach", "oldpeak", "bmi")
+
+for (col in num_cols) {
+  heart[[col]][is.na(heart[[col]])] <- median(heart[[col]], na.rm = TRUE)
+}
+
+# Biến phân loại: thay NA bằng Mode
+cat_cols <- c("smoking")
+
+for (col in cat_cols) {
+  heart[[col]][is.na(heart[[col]])] <- getmode(heart[[col]])
+}
+
+```
+
+Khi đã xử lý
+
+```{r}
+sum(is.na(heart))
+colSums(is.na(heart))
+```
+Số lượng giá trị thiếu trong bộ dữ liệu là rất nhỏ. Nếu xóa các dòng chứa NA sẽ làm mất một phần dữ liệu. Vì vậy nhóm lựa chọn phương pháp thay thế giá trị thiếu bằng Median và Mode để giữ lại tối đa thông tin của bộ dữ liệu đồng thời vẫn đảm bảo chất lượng dữ liệu đầu vào.
+
+3.4.2. Xử lý dữ liệu trùng lặp
+
+```{r}
+sum(duplicated(heart))
+heart <- heart[!duplicated(heart), ]
+sum(duplicated(heart))
+```
+
+3.4.3. 
+
+```{r}
+# Kiểm tra thống kê mô tả của các biến số
+summary(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")])
+
+# Vẽ boxplot để quan sát ngoại lệ
+boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")],
+        main = "Boxplot các thuộc tính số",
+        las = 2)
+```
+
+```{r}
+# Kiểm tra trước xử lý
+summary(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")])
+
+boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")],
+        main = "Boxplot các thuộc tính số trước xử lý",
+        las = 2)
+
+# Chuyển các giá trị ngoại lệ thành NA
+heart$chol[heart$chol > 600] <- NA
+heart$thalach[heart$thalach > 250] <- NA
+heart$oldpeak[heart$oldpeak > 10] <- NA
+heart$bmi[heart$bmi > 60] <- NA
+
+# Thay thế NA bằng Median của từng cột
+outlier_cols <- c("chol", "thalach", "oldpeak", "bmi")
+
+for (col in outlier_cols) {
+  heart[[col]][is.na(heart[[col]])] <- median(heart[[col]], na.rm = TRUE)
+}
+
+# Kiểm tra lại sau xử lý
+summary(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")])
+
+boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")],
+        main = "Boxplot các thuộc tính số sau xử lý",
+        las = 2)
+
+```
+3.3.4. Mã hóa biến phân loại
+
+```{r}
+# Mã hóa biến phân loại bằng Label Encoding
+
+heart$sex <- ifelse(heart$sex == "Male", 1, 0)
+
+heart$cp <- factor(
+  heart$cp,
+  levels = c("Typical angina",
+             "Atypical angina",
+             "Non-anginal pain",
+             "Asymptomatic"),
+  labels = c(1, 2, 3, 4)
+)
+heart$cp <- as.numeric(as.character(heart$cp))
+
+heart$fbs <- ifelse(heart$fbs == "True", 1, 0)
+
+heart$exang <- ifelse(heart$exang == "Yes", 1, 0)
+
+heart$slope <- factor(
+  heart$slope,
+  levels = c("Upsloping",
+             "Flat",
+             "Downsloping"),
+  labels = c(1, 2, 3)
+)
+heart$slope <- as.numeric(as.character(heart$slope))
+
+heart$smoking <- ifelse(heart$smoking == "Smoking", 1, 0)
+
+heart$diabetes <- ifelse(heart$diabetes == "Has diabetes", 1, 0)
+
+heart$target <- ifelse(heart$target == "Risk Present", 1, 0)
+
+# Kiểm tra kết quả sau mã hóa
+str(heart)
+summary(heart)
+```
+
+```{r}
+write.csv(
+  heart,
+  "heart_disease_dataset_clean.csv",
+  row.names = FALSE
+)
+```
+
+# 3.3.5. Chuẩn hóa dữ liệu
+
+```{r}
+scale_cols <- c("age", "trestbps", "chol",
+                "thalach", "oldpeak", "ca", "bmi")
+
+heart[scale_cols] <- scale(heart[scale_cols])
+
+# Kiểm tra lại dữ liệu sau khi mã hóa và chuẩn hóa
+summary(scale_cols)
+```
+
+
