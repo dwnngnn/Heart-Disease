@@ -15,7 +15,7 @@ Khái niệm → Cách kiểm tra → Kết quả → Cách xử lý → Kết l
 
 3.4.1. Xử lý dữ liệu NA
 ```{r}
-heart <- read.csv("heart_disease_dataset_final.csv")
+heart <- read.csv("heart_cleveland_raw.csv")
 sum(is.na(heart))
 colSums(is.na(heart))
 sum(duplicated(heart))
@@ -23,26 +23,7 @@ names(heart)
 str(heart)
 ```
 ```{r}
-# Hàm tìm Mode
-getmode <- function(v) {
-  uniqv <- na.omit(unique(v))
-  uniqv[which.max(tabulate(match(v, uniqv)))]
-}
-
-# Các biến số: thay NA bằng Median
-num_cols <- c("trestbps", "chol", "thalach", "oldpeak", "bmi")
-
-for (col in num_cols) {
-  heart[[col]][is.na(heart[[col]])] <- median(heart[[col]], na.rm = TRUE)
-}
-
-# Biến phân loại: thay NA bằng Mode
-cat_cols <- c("smoking")
-
-for (col in cat_cols) {
-  heart[[col]][is.na(heart[[col]])] <- getmode(heart[[col]])
-}
-
+heart <- na.omit(heart)
 ```
 
 Khi đã xử lý
@@ -61,43 +42,40 @@ heart <- heart[!duplicated(heart), ]
 sum(duplicated(heart))
 ```
 
-3.4.3. 
+3.4.3. xử lý dữ liệu outlier
 
 ```{r}
 # Kiểm tra thống kê mô tả của các biến số
-summary(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")])
+# Chọn các biến số cần kiểm tra ngoại lệ
+num_cols <- c("age", "trestbps", "chol",
+              "thalach", "oldpeak", "ca")
 
-# Vẽ boxplot để quan sát ngoại lệ
-boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")],
+# Vẽ boxplot tổng quát để quan sát ngoại lệ ban đầu
+boxplot(heart[, num_cols],
         main = "Boxplot các thuộc tính số",
         las = 2)
 ```
 
 ```{r}
-# Kiểm tra trước xử lý
-summary(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")])
+# Kiểm tra thống kê mô tả trước xử lý
+summary(heart[, num_cols])
 
-boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")],
+# Vẽ boxplot trước xử lý
+boxplot(heart[, num_cols],
         main = "Boxplot các thuộc tính số trước xử lý",
         las = 2)
 
-# Chuyển các giá trị ngoại lệ thành NA
-heart$chol[heart$chol > 600] <- NA
-heart$thalach[heart$thalach > 250] <- NA
-heart$oldpeak[heart$oldpeak > 10] <- NA
-heart$bmi[heart$bmi > 60] <- NA
+# Xóa các dòng chứa outlier 
+heart <- heart[
+  heart$trestbps < 300 &
+  heart$chol < 700 &
+  heart$thalach > 0,
+]
+# Kiểm tra thống kê mô tả sau xử lý
+summary(heart[, num_cols])
 
-# Thay thế NA bằng Median của từng cột
-outlier_cols <- c("chol", "thalach", "oldpeak", "bmi")
-
-for (col in outlier_cols) {
-  heart[[col]][is.na(heart[[col]])] <- median(heart[[col]], na.rm = TRUE)
-}
-
-# Kiểm tra lại sau xử lý
-summary(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")])
-
-boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")],
+# Vẽ boxplot sau xử lý
+boxplot(heart[, num_cols],
         main = "Boxplot các thuộc tính số sau xử lý",
         las = 2)
 
@@ -105,62 +83,82 @@ boxplot(heart[, c("age", "trestbps", "chol", "thalach", "oldpeak", "ca", "bmi")]
 3.3.4. Mã hóa biến phân loại
 
 ```{r}
-# Mã hóa biến phân loại bằng Label Encoding
-
+# Mã hóa giới tính
 heart$sex <- ifelse(heart$sex == "Male", 1, 0)
 
+# Mã hóa loại đau ngực
 heart$cp <- factor(
   heart$cp,
-  levels = c("Typical angina",
-             "Atypical angina",
-             "Non-anginal pain",
-             "Asymptomatic"),
-  labels = c(1, 2, 3, 4)
+  levels = c("Typical angina","Atypical angina","Non-anginal pain", "Asymptomatic"),
+  labels = c(0, 1, 2, 3)
 )
 heart$cp <- as.numeric(as.character(heart$cp))
 
-heart$fbs <- ifelse(heart$fbs == "True", 1, 0)
+# Mã hóa đường huyết lúc đói
+heart$fbs <- ifelse(heart$fbs == TRUE, 1, 0)
 
+# Mã hóa điện tâm đồ lúc nghỉ
+heart$restecg <- factor(
+  heart$restecg,
+  levels = c("Normal", "ST-T abnormality", "Left ventricular hypertrophy"),
+  labels = c(0, 1, 2)
+)
+heart$restecg <- as.numeric(as.character(heart$restecg))
+
+# Mã hóa đau thắt ngực do gắng sức
 heart$exang <- ifelse(heart$exang == "Yes", 1, 0)
 
+# Mã hóa độ dốc đoạn ST
 heart$slope <- factor(
   heart$slope,
-  levels = c("Upsloping",
-             "Flat",
-             "Downsloping"),
+  levels = c("Upsloping", "Flat", "Downsloping"),
   labels = c(1, 2, 3)
 )
 heart$slope <- as.numeric(as.character(heart$slope))
 
-heart$smoking <- ifelse(heart$smoking == "Smoking", 1, 0)
+# Mã hóa Thal
+heart$thal <- factor(
+  heart$thal,
+  levels = c("Normal", "Fixed defect","Reversable defect"),
+  labels = c(0, 1, 2)
+)
+heart$thal <- as.numeric(as.character(heart$thal))
 
-heart$diabetes <- ifelse(heart$diabetes == "Has diabetes", 1, 0)
+# Mã hóa biến mục tiêu
+heart$target <- ifelse(heart$target == "Risk present", 1, 0)
 
-heart$target <- ifelse(heart$target == "Risk Present", 1, 0)
-
-# Kiểm tra kết quả sau mã hóa
+# Kiểm tra kết quả
 str(heart)
 summary(heart)
-```
 
-```{r}
 write.csv(
   heart,
   "heart_disease_dataset_clean.csv",
   row.names = FALSE
 )
+dim(heart)
 ```
 
 # 3.3.5. Chuẩn hóa dữ liệu
 
 ```{r}
-scale_cols <- c("age", "trestbps", "chol",
-                "thalach", "oldpeak", "ca", "bmi")
+# Chọn các thuộc tính số cần chuẩn hóa
+scale_cols <- c("age",
+                "trestbps",
+                "chol",
+                "thalach",
+                "oldpeak",
+                "ca")
 
+# Lưu dữ liệu trước chuẩn hóa
+heart_before <- heart
+
+# Chuẩn hóa dữ liệu bằng StandardScaler
 heart[scale_cols] <- scale(heart[scale_cols])
 
-# Kiểm tra lại dữ liệu sau khi mã hóa và chuẩn hóa
-summary(scale_cols)
+summary(heart_before[, c("age", "chol", "thalach")])
+
+summary(heart[, c("age", "chol", "thalach")])
 ```
 
 
