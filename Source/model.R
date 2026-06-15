@@ -5,14 +5,13 @@ library(ranger)
 library(pROC)
 
 # 5.1. Chia tập dữ liệu
-heart_data <- read.csv(file.path("heart_disease_dataset_cleaned.csv"), stringsAsFactors = FALSE)
+heart_data <- read.csv(file.path("heart_disease_dataset_clean.csv"), stringsAsFactors = FALSE)
 if ("target" %in% names(heart_data)) {
   names(heart_data)[names(heart_data) == "target"] <- "heart_disease"
 }
-
 heart_data$heart_disease <- factor(heart_data$heart_disease, levels = c(0, 1))
 
-set.seed(31)
+set.seed(42)
 train_index <- createDataPartition(heart_data$heart_disease, p = 0.7, list = FALSE)
 training_set <- heart_data[train_index, ]
 testing_set <- heart_data[-train_index, ]
@@ -35,6 +34,7 @@ evaluate_model <- function(actual, predicted_class, predicted_prob = NULL) {
   }
   data.frame(
     Accuracy = round(accuracy, 4),
+    Precision = round(precision, 4),    
     Recall = round(recall, 4),
     Specificity = round(spec, 4),
     AUC = ifelse(is.na(auc_val), NA, round(auc_val, 4)),
@@ -42,7 +42,15 @@ evaluate_model <- function(actual, predicted_class, predicted_prob = NULL) {
   )
 }
 
-results <- tibble::tibble(Model = character(), Accuracy = numeric(), Recall = numeric(), Specificity = numeric(), AUC = numeric(), F1 = numeric())
+results <- tibble::tibble(
+  Model = character(), 
+  Accuracy = numeric(), 
+  Precision = numeric(), 
+  Recall = numeric(), 
+  Specificity = numeric(), 
+  AUC = numeric(), 
+  F1 = numeric()
+)
 
 # 5.2. Xây dựng mô hình Logistic Regression
 model_lr <- glm(heart_disease ~ ., data = training_set, family = binomial)
@@ -57,10 +65,11 @@ cat("\n")
 
 # 5.3. Xây dựng mô hình Random Forest
 model_rfc <- ranger(
-  formula = heart_disease ~ ., 
+  formula = heart_disease ~ .,
   data = training_set,
-  num.trees = 350,
+  num.trees = 150,
   max.depth = 5,
+  min.node.size = 5,
   probability = TRUE,
   seed = 42
 )
@@ -83,7 +92,7 @@ print(metrics_rfc)
 cat("\n")
 
 # 5.4. Xây dựng mô hình KNN
-model_knn <- knn3(heart_disease ~ ., data = training_set, k = 5)
+model_knn <- knn3(heart_disease ~ ., data = training_set, k = 7)
 pred_knn_prob_mat <- predict(model_knn, newdata = testing_set, type = "prob")
 if (!is.null(pred_knn_prob_mat)) {
   predicted_knn_prob <- as.numeric(pred_knn_prob_mat[, "1"])
@@ -184,4 +193,3 @@ interpret_knn_permutation <- function(model, testing_data, response_name = "hear
 interpret_logistic(model_lr)
 interpret_ranger(training_set)
 interpret_knn_permutation(model_knn, testing_set)
-
