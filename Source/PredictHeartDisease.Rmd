@@ -1,0 +1,159 @@
+---
+title: "Dự đoán nguy cơ mắc bệnh tim dựa trên dữ liệu y tế bằng các mô hình Machine Learning."
+date: "2026-06-11"
+output: html_document
+---
+
+
+```{r Thư viện cần thiết, warning=FALSE, message=FALSE}
+# Các thư viện
+library(caret)
+library(e1071)
+library(pROC)
+library(ggplot2)
+library(reshape2)
+
+set.seed(123)
+
+```
+
+``` {r}
+# 1. Đọc và xử lý dữ liệu
+data <- read.csv(file.path("heart_disease_dataset_clean.csv"), stringsAsFactors = FALSE)
+
+cat_vars <- c("sex","cp","fbs","restecg","exang","slope","ca","thal","target")
+data[cat_vars] <- lapply(data[cat_vars], factor)
+data$target <- factor(data$target, levels = c(0,1), labels = c("No","Yes"))
+```
+
+``` {r}
+# 2. Tạo train/test
+idx <- createDataPartition(data$target, p = 0.7, list = FALSE)
+train <- data[idx, ]
+test  <- data[-idx, ]
+
+ctrl <- trainControl(method = "cv", number = 10,
+                      classProbs = TRUE, summaryFunction = twoClassSummary)
+```
+
+``` {r Các mô hình Machine Learning}
+# 3. Logistic Regression
+log_model <- glm(target ~ ., data = train, family = binomial)
+summary(log_model)
+
+log_prob <- predict(log_model, test, type = "response")
+log_pred <- factor(ifelse(log_prob > 0.5, "Yes", "No"), levels = c("No","Yes"))
+log_cm <- confusionMatrix(log_pred, test$target, positive = "Yes")
+print(log_cm)
+
+# 4. KNN - chọn k tối ưu
+knn_model <- train(target ~ ., data = train, method = "knn",
+                    trControl = ctrl, metric = "ROC",
+                    preProcess = c("center","scale"),
+                    tuneGrid = expand.grid(k = 1:17))
+print(knn_model)
+best_k <- knn_model$bestTune$k
+cat("K tối ưu:", best_k, "\n")
+plot(knn_model)
+
+knn_pred <- predict(knn_model, test)
+knn_prob <- predict(knn_model, test, type = "prob")[, "Yes"]
+knn_cm <- confusionMatrix(knn_pred, test$target, positive = "Yes")
+print(knn_cm)
+
+# 5. SVM
+svm_tune <- train(target ~ ., data = train, method = "svmRadial",
+                   trControl = ctrl, metric = "ROC",
+                   preProcess = c("center","scale"),
+                   tuneLength = 10)
+print(svm_tune)
+plot(svm_tune)
+
+svm_pred <- predict(svm_tune, test)
+svm_prob <- predict(svm_tune, test, type = "prob")[, "Yes"]
+svm_cm <- confusionMatrix(svm_pred, test$target, positive = "Yes")
+print(svm_cm)
+
+# 6. So sánh chỉ số
+get_metrics <- function(cm, model_name) {
+  data.frame(
+    Model = model_name,
+    Accuracy = cm$overall["Accuracy"],
+    Sensitivity = cm$byClass["Sensitivity"],
+    Specificity = cm$byClass["Specificity"],
+    Precision = cm$byClass["Precision"],
+    F1 = cm$byClass["F1"]
+  )
+}
+
+results <- rbind(
+  get_metrics(log_cm, "Logistic Regression"),
+  get_metrics(knn_cm, paste0("KNN (k=", best_k, ")")),
+  get_metrics(svm_cm, "SVM")
+)
+print(results)
+
+results_melt <- melt(results, id.vars = "Model")
+ggplot(results_melt, aes(x = Model, y = value, fill = variable)) +
+  geom_col(position = "dodge") +
+  labs(title = "So sánh chỉ số các mô hình", y = "Giá trị", fill = "Chỉ số") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1))
+
+# 7. ROC - AUC
+roc_log <- roc(test$target, log_prob, levels = c("No","Yes"))
+roc_knn <- roc(test$target, knn_prob, levels = c("No","Yes"))
+roc_svm <- roc(test$target, svm_prob, levels = c("No","Yes"))
+
+plot(roc_log, col = "blue", main = "ROC Curve - So sánh 3 mô hình")
+plot(roc_knn, col = "darkgreen", add = TRUE)
+plot(roc_svm, col = "red", add = TRUE)
+legend("bottomright",
+       legend = c(paste0("Logistic (AUC=", round(auc(roc_log),3), ")"),
+                  paste0("KNN (AUC=", round(auc(roc_knn),3), ")"),
+                  paste0("SVM (AUC=", round(auc(roc_svm),3), ")")),
+       col = c("blue","darkgreen","red"), lwd = 2)
+
+# 8. Confusion Matrix Heatmap
+plot_cm <- function(cm, title) {
+  cm_df <- as.data.frame(cm$table)
+  ggplot(cm_df, aes(Prediction, Reference, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), color = "white", size = 6) +
+    scale_fill_gradient(low = "lightblue", high = "darkblue") +
+    labs(title = title) +
+    theme_minimal()
+}
+
+plot_cm(log_cm, "Confusion Matrix - Logistic Regression")
+plot_cm(knn_cm, "Confusion Matrix - KNN")
+plot_cm(svm_cm, "Confusion Matrix - SVM")
+
+# 9. Dự đoán cho dữ liệu mới
+new_patient <- data.frame(
+  age = 50, sex = 1, cp = 2, trestbps = 120, chol = 200,
+  fbs = 0, restecg = 1, thalach = 165, exang = 0,
+  oldpeak = 0.5, slope = 2, ca = 0, thal = 2
+)
+
+for (v in cat_vars[cat_vars != "target"]) {
+  new_patient[[v]] <- factor(new_patient[[v]], levels = levels(train[[v]]))
+}
+
+log_new_prob <- predict(log_model, new_patient, type = "response")
+log_new_pred <- ifelse(log_new_prob > 0.5, "Có nguy cơ", "Không nguy cơ")
+
+knn_new_pred <- predict(knn_model, new_patient)
+knn_new_prob <- predict(knn_model, new_patient, type = "prob")[, "Yes"]
+
+svm_new_pred <- predict(svm_tune, new_patient)
+svm_new_prob <- predict(svm_tune, new_patient, type = "prob")[, "Yes"]
+
+cat("===== KẾT QUẢ DỰ ĐOÁN DỮ LIỆU MỚI =====\n")
+cat(sprintf("Logistic Regression: %s (xác suất = %.3f)\n", log_new_pred, log_new_prob))
+cat(sprintf("KNN (k=%d): %s (xác suất = %.3f)\n", best_k,
+            ifelse(knn_new_pred == "Yes", "Có nguy cơ", "Không nguy cơ"), knn_new_prob))
+cat(sprintf("SVM: %s (xác suất = %.3f)\n",
+            ifelse(svm_new_pred == "Yes", "Có nguy cơ", "Không nguy cơ"), svm_new_prob))
+
+```
