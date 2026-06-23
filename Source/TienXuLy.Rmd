@@ -1,7 +1,8 @@
 ---
-title: "Tiền Xử Lý R_project"
+title: "Heart Disease Prediction – So sánh mô hình Machine Learning"
+author: "Nhóm 14"
 output: html_document
-date: "2026-06-10"
+date: "`r Sys.Date()`"
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +16,7 @@ Khái niệm → Cách kiểm tra → Kết quả → Cách xử lý → Kết l
 
 3.4.1. Xử lý dữ liệu NA
 ```{r}
-heart <- read.csv("heart_cleveland_raw.csv")
+heart <- read.csv(file.path("C:\\TaiLieuHocTap\\R\\HD\\Dataset\\heart_disease_dataset_clean.csv"), stringsAsFactors = FALSE)
 sum(is.na(heart))
 colSums(is.na(heart))
 sum(duplicated(heart))
