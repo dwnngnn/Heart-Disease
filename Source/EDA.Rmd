@@ -1,3 +1,15 @@
+---
+title: "Heart Disease Prediction – So sánh mô hình Machine Learning"
+author: "Nhóm 14"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+``` {r}
 library(ggplot2)
 library(dplyr)
 library(corrplot)
@@ -5,7 +17,7 @@ library(corrplot)
 
 ## 1. Tổng quan dữ liệu
 
-df <- read.csv("heart_cleveland_raw.csv")
+df <- read.csv(file.path("C:\\TaiLieuHocTap\\R\\HD\\Dataset\\heart_disease_dataset_clean.csv"), stringsAsFactors = FALSE)
 dim(df)
 head(df)
 str(df)
@@ -49,11 +61,4 @@ for(col in c("age", "chol", "trestbps", "thalach", "oldpeak",  "ca")) {
   boxplot(df[[col]] ~ df$target, main = col, col = c("green", "red"))
 }
 
-## 6. Tương quan
-cor_matrix <- cor(df[sapply(df, is.numeric)], use = "complete.obs")
-corrplot(cor_matrix, method = "color", type = "upper", tl.col = "black")
-
-cat("Số dòng:", nrow(df), "\n")
-cat("Số biến:", ncol(df), "\n")
-cat("Missing:", sum(is.na(df)), "\n")
-cat("Tỷ lệ mắc bệnh:", mean(df$heart_disease)*100, "%\n")
+```
