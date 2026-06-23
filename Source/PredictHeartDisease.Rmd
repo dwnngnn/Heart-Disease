@@ -1,5 +1,6 @@
 ---
-title: "Heart Disease Prediction – So sánh mô hình ML"
+title: "Heart Disease Prediction – So sánh mô hình Machine Learning"
+author: "Nhóm 14"
 output: html_document
 date: "`r Sys.Date()`"
 ---
@@ -49,7 +50,6 @@ ctrl_rep <- trainControl(
   savePredictions = "final"
 )
 
-# CV thường cho SVM
 ctrl_svm <- trainControl(
   method          = "repeatedcv",
   number          = 10,
@@ -289,11 +289,13 @@ for (var in categorical_vars) {
 p_log <- predict(log_model, new_patient, type = "prob")[, "Yes"]
 p_knn <- predict(knn_model, new_patient, type = "prob")[, "Yes"]
 p_svm <- predict(svm_model, new_patient, type = "prob")[, "Yes"]
-p_avg <- mean(c(p_log, p_knn, p_svm))
+
+p_result <- p_log # dùng kết quả của logistic regression để dự đoán
+# p_result <- mean(c(p_log, p_knn, p_svm)) # dùng trung bình dự đoán từ 3 mô hình để dự đoán
 
 cat("\n=== KẾT QUẢ DỰ ĐOÁN ===\n")
-cat(sprintf("  Logistic: %.8f | KNN: %.8f | SVM: %.8f | Voting: %.4f\n", p_log, p_knn, p_svm, p_avg))
+cat(sprintf("  Logistic: %.8f | KNN: %.8f | SVM: %.8f | Voting: %.8f\n", p_log, p_knn, p_svm, p_result))
 cat("\n=== KẾT LUẬN ===\n")
-cat(ifelse(p_avg > 0.5, "BỆNH NHÂN CÓ NGUY CƠ BỆNH TIM", "BỆNH NHÂN KHÔNG CÓ NGUY CƠ"))
+cat(ifelse(p_result > 0.5, "BỆNH NHÂN CÓ NGUY CƠ BỆNH TIM", "BỆNH NHÂN KHÔNG CÓ NGUY CƠ"))
 cat("\n")
 ```
