@@ -1,15 +1,15 @@
 ---
-title: "ProjectCK"
-author: "Nguyen Minh Thu"
-date: "2026-06-12"
+title: "Heart Disease Prediction – So sánh mô hình Machine Learning"
+author: "Nhóm 14"
 output: html_document
+date: "`r Sys.Date()`"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r setup, librarys}
+```{r setup, librarys, warning=FALSE, message=FALSE}
 library(corrplot)
 library(ggplot2)
 library(ggcorrplot)
@@ -26,7 +26,7 @@ library(patchwork)
 #--------------------------------------------------
 # NHẬP DỮ LIỆU
 #--------------------------------------------------
-data <- read.csv("D:/Kì 4/R phantich/heart_disease_dataset_clean.csv")
+data <- read.csv(file.path("C:\\TaiLieuHocTap\\R\\HD\\Dataset\\heart_disease_dataset_clean.csv"), stringsAsFactors = FALSE)
 View(data)
 ```
 
